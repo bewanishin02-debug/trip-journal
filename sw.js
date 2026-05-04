@@ -1,4 +1,4 @@
-const CACHE = 'tj-test-v1';
+const CACHE = 'tj-test-v2';
 const ASSETS = [
   '/trip-journal/',
   '/trip-journal/index.html',
