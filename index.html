@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Trip Journal — Test</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f5f2ee">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Trip Journal">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #f5f2ee;
+      --text:    #1a1a18;
+      --muted:   #9a9690;
+      --faint:   #c8c4be;
+      --fainter: #b0aca6;
+      --border:  rgba(0,0,0,0.15);
+      --serif:   'IM Fell English', Georgia, serif;
+      --sans:    'Lato', sans-serif;
+    }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); font-weight: 300;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      position: relative;
+    }
+    #waves { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.32; pointer-events: none; }
+    #app {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 520px;
+      padding: 2rem 2rem 3rem;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 2rem;
+      max-height: 100vh; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .label { font-family: var(--sans); font-size: 10px; font-weight: 400; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+    .serif-msg { font-family: var(--serif); font-size: clamp(1.1rem,4.5vw,1.45rem); color: var(--text); text-align: center; line-height: 1.75; max-width: 320px; }
+    .serif-msg em { font-style: italic; color: var(--muted); }
+    .trip-title { font-family: var(--serif); font-size: clamp(1.3rem,5vw,1.7rem); color: var(--text); text-align: center; line-height: 1.5; }
+
+    /* SETUP */
+    .setup-form { width: 100%; max-width: 300px; display: flex; flex-direction: column; gap: 1.4rem; }
+    .field { display: flex; flex-direction: column; gap: 0.4rem; }
+    .field input { background: transparent; border: none; border-bottom: 1px solid var(--faint); font-family: var(--serif); font-size: 16px; color: var(--text); padding: 0.4rem 0; outline: none; -webkit-appearance: none; transition: border-color 0.3s; }
+    .field input:focus { border-bottom-color: var(--muted); }
+    .field input::placeholder { color: rgba(0,0,0,0.18); }
+
+    /* NOTE CARD */
+    .note-card { width: min(300px,84vw); aspect-ratio: 2/3; border-radius: 3px; display: flex; flex-direction: column; padding: 0 0 1.1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08),0 6px 28px rgba(0,0,0,0.09); transition: background 0.25s; flex-shrink: 0; overflow: hidden; }
+    .card-photo-area { width: 100%; flex: 0 0 45%; background: rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden; }
+    .card-photo-area img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-hint { font-family: var(--sans); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(0,0,0,0.22); pointer-events: none; }
+    .photo-remove { position: absolute; top: 6px; right: 8px; font-family: var(--sans); font-size: 10px; color: rgba(0,0,0,0.3); cursor: pointer; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(255,255,255,0.7); padding: 2px 6px; border-radius: 2px; z-index: 2; }
+    .card-text-area { flex: 1; padding: 1rem 1.4rem 0; display: flex; flex-direction: column; gap: 0.7rem; }
+    .card-text-area textarea { flex: 1; background: transparent; border: none; outline: none; resize: none; font-family: var(--serif); font-size: max(15px,1em); line-height: 1.9; color: var(--text); caret-color: rgba(0,0,0,0.35); -webkit-appearance: none; width: 100%; }
+    .card-text-area textarea::placeholder { color: rgba(0,0,0,0.18); }
+    .card-footer { padding: 0 1.4rem; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .counter { font-family: var(--sans); font-size: 11px; color: rgba(0,0,0,0.22); letter-spacing: 0.08em; transition: color 0.3s; }
+    .counter.low { color: rgba(160,55,40,0.55); }
+
+    /* SWATCHES */
+    .color-picker { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; max-width: 160px; }
+    .swatch { width: 14px; height: 14px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; box-shadow: 0 1px 3px rgba(0,0,0,0.14); transition: transform 0.15s,border-color 0.15s; flex-shrink: 0; }
+    .swatch:hover { transform: scale(1.18); }
+    .swatch.active { border-color: rgba(0,0,0,0.38); }
+
+    /* BUTTONS */
+    .btn { background: transparent; border: 1px solid var(--border); color: rgba(0,0,0,0.38); font-family: var(--sans); font-weight: 300; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; padding: 0.7rem 2.2rem; cursor: pointer; transition: border-color 0.25s,color 0.25s; -webkit-appearance: none; border-radius: 0; -webkit-tap-highlight-color: transparent; }
+    .btn:hover,.btn:focus { border-color: rgba(0,0,0,0.38); color: rgba(0,0,0,0.72); outline: none; }
+    .btn:active { opacity: 0.65; }
+    .btn-stack { display: flex; flex-direction: column; gap: 0.8rem; align-items: center; }
+
+    /* JOURNAL */
+    .journal-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2.5rem; padding-bottom: 2rem; }
+    .journal-entry { width: min(280px,82vw); border-radius: 3px; display: flex; flex-direction: column; box-shadow: 0 2px 8px rgba(0,0,0,0.08),0 6px 28px rgba(0,0,0,0.09); overflow: hidden; flex-shrink: 0; }
+    .journal-photo { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+    .journal-body { padding: 1rem 1.2rem 1.2rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .journal-body.no-photo { min-height: 160px; justify-content: center; }
+    .journal-stamp { font-family: var(--sans); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(0,0,0,0.26); }
+    .journal-text { font-family: var(--serif); font-style: italic; font-size: 0.96rem; line-height: 1.9; color: rgba(0,0,0,0.72); }
+    .missed-stamp { font-family: var(--sans); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(0,0,0,0.2); text-align: center; }
+    .missed-text { font-family: var(--serif); font-style: italic; font-size: 0.9rem; color: rgba(0,0,0,0.22); text-align: center; }
+
+    /* ARRIVAL */
+    .arrival-wrap { display: flex; flex-direction: column; align-items: center; gap: 2.2rem; text-align: center; }
+
+    /* HIDDEN DEBUG TRIGGER — tiny invisible tap zone bottom-right */
+    #debug-trigger {
+      position: fixed; bottom: 0; right: 0;
+      width: 44px; height: 44px;
+      z-index: 200; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* CONFIRM MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(245,242,238,0.92);
+      display: flex; align-items: center; justify-content: center;
+      animation: fadeUp 0.3s ease both;
+    }
+    .modal-box {
+      background: #f5f2ee;
+      border: 1px solid var(--faint);
+      padding: 2rem 2rem 1.5rem;
+      max-width: 280px; width: 90%;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 1.4rem;
+      text-align: center;
+    }
+    .modal-msg { font-family: var(--serif); font-size: 1rem; line-height: 1.7; color: var(--text); }
+    .modal-msg em { font-style: italic; color: var(--muted); }
+    .modal-btns { display: flex; gap: 0.8rem; width: 100%; }
+    .modal-btns button { flex: 1; background: transparent; border: 1px solid var(--faint); color: var(--muted); font-family: var(--sans); font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.65rem 0; cursor: pointer; transition: border-color 0.2s, color 0.2s; -webkit-appearance: none; border-radius: 0; }
+    .modal-btns button:hover { border-color: rgba(0,0,0,0.3); color: var(--text); }
+    .modal-btns button.danger { border-color: rgba(160,60,40,0.25); color: rgba(160,60,40,0.6); }
+    .modal-btns button.danger:hover { border-color: rgba(160,60,40,0.6); color: rgba(160,60,40,0.9); }
+
+    /* LOCATION TOGGLE ON CARD */
+    .loc-toggle-row {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0 1.4rem;
+    }
+    .loc-toggle-label {
+      font-family: var(--sans); font-size: 9px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(0,0,0,0.28); cursor: pointer;
+      user-select: none;
+    }
+    .loc-toggle {
+      position: relative; width: 28px; height: 16px; flex-shrink: 0;
+    }
+    .loc-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .loc-toggle-track {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.12); border-radius: 8px;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .loc-toggle input:checked + .loc-toggle-track { background: rgba(0,0,0,0.35); }
+    .loc-toggle-track::after {
+      content: ''; position: absolute;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: white; top: 2px; left: 2px;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .loc-toggle input:checked + .loc-toggle-track::after { transform: translateX(12px); }
+    .card-loc {
+      padding: 0.5rem 1.4rem 0;
+      font-family: var(--sans); font-size: 8.5px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(0,0,0,0.32); min-height: 20px;
+    }
+
+    .fade-in { animation: fadeUp 0.65s ease both; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:translateY(0); } }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
+  </style>
+</head>
+<body>
+<h1 class="sr-only">Trip Journal Test</h1>
+<canvas id="waves"></canvas>
+<div id="app"></div>
+<div id="debug-trigger" title=""></div>
+
+<script>
+  const MAX_CHARS  = 250;
+  const S_TRIP     = 'tj_trip_test_v2';
+  const S_COLOR    = 'tj_color_test_v2';
+  const DB_NAME    = 'TripJournalTestDB_v2';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'entries';
+
+  const COLORS = [
+    { name:'cream',     bg:'#fdf6e3' },
+    { name:'rose',      bg:'#f9e8e8' },
+    { name:'sage',      bg:'#e8f0e8' },
+    { name:'sky',       bg:'#e8f2f9' },
+    { name:'lavender',  bg:'#ede8f5' },
+    { name:'sand',      bg:'#f2ece0' },
+    { name:'white',     bg:'#ffffff' },
+    { name:'terracotta',bg:'#f2e0d8' },
+    { name:'forest',    bg:'#ddeade' },
+    { name:'slate',     bg:'#dde4ed' },
+    { name:'dusty gold',bg:'#f2edda' },
+    { name:'warm grey', bg:'#e8e5e0' },
+    { name:'blush',     bg:'#f5e6ee' },
+    { name:'midnight',  bg:'#dde0e8' },
+  ];
+
+  let selectedColor = localStorage.getItem(S_COLOR) || 'cream';
+  let _lastDay = null, _heartbeat = null, _db = null;
+
+  // ── TIME ──────────────────────────────────────────────────────────────────
+  function localDateStr(d) {
+    d = d || new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function todayStr() { return localDateStr(new Date()); }
+  function fmtDateStr(ds) {
+    const [y,m,d] = ds.split('-').map(Number);
+    return new Date(y,m-1,d).toLocaleDateString([],{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  }
+  function fmtTime(ts) { return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:true}); }
+
+  // ── TRIP ──────────────────────────────────────────────────────────────────
+  function getTrip()   { try { return JSON.parse(localStorage.getItem(S_TRIP)); } catch(e) { return null; } }
+  function saveTrip(t) { localStorage.setItem(S_TRIP, JSON.stringify(t)); }
+  function colorObj(n) { return COLORS.find(c=>c.name===n)||COLORS[0]; }
+  function tripIsOver() { const t=getTrip(); if(!t) return false; return t.forceOver||todayStr()>t.endDate; }
+
+  // ── INDEXEDDB — key is auto-increment id, not dateStr ─────────────────────
+  function openDB() {
+    return new Promise((resolve,reject) => {
+      if (_db) { resolve(_db); return; }
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          // autoIncrement so multiple entries per day are all kept
+          db.createObjectStore(STORE_NAME, { keyPath:'id', autoIncrement:true });
+        }
+      };
+      req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+      req.onerror   = e => reject(e.target.error);
+    });
+  }
+
+  async function saveEntry(entry) {
+    const db = await openDB();
+    return new Promise((resolve,reject) => {
+      const tx  = db.transaction(STORE_NAME,'readwrite');
+      const req = tx.objectStore(STORE_NAME).add(entry); // add not put — never overwrites
+      req.onsuccess = ()=>resolve();
+      req.onerror   = e=>reject(e.target.error);
+    });
+  }
+
+  async function getAllEntries() {
+    const db = await openDB();
+    return new Promise((resolve,reject) => {
+      const tx  = db.transaction(STORE_NAME,'readonly');
+      const req = tx.objectStore(STORE_NAME).getAll();
+      req.onsuccess = e => resolve(e.target.result.sort((a,b)=>a.createdAt-b.createdAt));
+      req.onerror   = e => reject(e.target.error);
+    });
+  }
+
+  async function clearAllEntries() {
+    const db = await openDB();
+    return new Promise((resolve,reject) => {
+      const tx  = db.transaction(STORE_NAME,'readwrite');
+      const req = tx.objectStore(STORE_NAME).clear();
+      req.onsuccess = ()=>resolve();
+      req.onerror   = e=>reject(e.target.error);
+    });
+  }
+
+  // ── PHOTO COMPRESSION ─────────────────────────────────────────────────────
+  function compressImage(file, maxWidth=1200) {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const scale  = Math.min(1, maxWidth/img.width);
+          const canvas = document.createElement('canvas');
+          canvas.width  = img.width  * scale;
+          canvas.height = img.height * scale;
+          canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+          resolve(canvas.toDataURL('image/jpeg',0.82));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ── HEARTBEAT ─────────────────────────────────────────────────────────────
+  function startHeartbeat() {
+    if (_heartbeat) clearInterval(_heartbeat);
+    _lastDay = todayStr();
+    _heartbeat = setInterval(() => {
+      const nowDay = todayStr();
+      if (nowDay !== _lastDay) { _lastDay = nowDay; render(); }
+    }, 5000);
+  }
+
+  // ── DOM HELPERS ───────────────────────────────────────────────────────────
+  function el(tag,cls,style,text) {
+    const e = document.createElement(tag);
+    if (cls)   e.className=cls;
+    if (style) e.style.cssText=style;
+    if (text!==undefined) e.textContent=text;
+    return e;
+  }
+  function append(parent,...kids) { kids.forEach(k=>parent.appendChild(k)); }
+  function setApp(node) { const a=document.getElementById('app'); a.innerHTML=''; a.appendChild(node); }
+
+  // ── COLOR PICKER ──────────────────────────────────────────────────────────
+  function buildPicker(onChange) {
+    const wrap = el('div','color-picker');
+    COLORS.forEach(c => {
+      const sw = el('div','swatch'+(c.name===selectedColor?' active':''));
+      sw.style.background = c.bg;
+      sw.title = c.name;
+      sw.addEventListener('click',()=>{
+        selectedColor=c.name;
+        localStorage.setItem(S_COLOR,selectedColor);
+        wrap.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
+        sw.classList.add('active');
+        onChange(c);
+      });
+      wrap.appendChild(sw);
+    });
+    return wrap;
+  }
+
+  // ── SCREEN: setup ─────────────────────────────────────────────────────────
+  function showSetup() {
+    const wrap = el('div','fade-in','width:100%;display:flex;flex-direction:column;align-items:center;gap:2rem;');
+    const title = el('p','serif-msg'); title.innerHTML='before you go.';
+    const sub   = el('div','label','','tell me about your trip');
+    const form  = el('div','setup-form');
+
+    const nameField = el('div','field');
+    const nameLbl   = el('div','label','','where are you going?');
+    const nameInput = document.createElement('input');
+    nameInput.type='text'; nameInput.placeholder='Paris, a road trip, home...'; nameInput.maxLength=40;
+    append(nameField,nameLbl,nameInput);
+
+    const startField = el('div','field');
+    const startLbl   = el('div','label','','first day');
+    const startInput = document.createElement('input');
+    startInput.type='date'; startInput.value=todayStr();
+    append(startField,startLbl,startInput);
+
+    const endField = el('div','field');
+    const endLbl   = el('div','label','','last day');
+    const endInput = document.createElement('input');
+    endInput.type='date';
+    append(endField,endLbl,endInput);
+
+    append(form,nameField,startField,endField);
+
+    const startBtn = el('button','btn','','begin');
+    startBtn.addEventListener('click',()=>{
+      const name=nameInput.value.trim(), start=startInput.value, end=endInput.value;
+      if (!name||!start||!end||end<start) return;
+      saveTrip({name,startDate:start,endDate:end});
+      render();
+    });
+
+    append(wrap,title,sub,form,startBtn);
+    setApp(wrap);
+    setTimeout(()=>nameInput.focus(),50);
+  }
+
+  // ── SCREEN: home ──────────────────────────────────────────────────────────
+  function showHome(onWrite) {
+    const trip = getTrip();
+    const wrap = el('div','fade-in','display:flex;flex-direction:column;align-items:center;gap:2rem;text-align:center;');
+    const title = el('p','trip-title','',trip.name);
+    const lbl   = el('div','label','',fmtDateStr(todayStr()));
+    const btn   = el('button','btn','','write today\'s entry');
+    btn.addEventListener('click',()=>{ if(typeof onWrite==='function') onWrite(); });
+    append(wrap,title,lbl,btn);
+    setApp(wrap);
+  }
+
+  // ── GEOLOCATION ───────────────────────────────────────────────────────────
+  function getLocation() {
+    return new Promise(resolve => {
+      if (!navigator.geolocation) { resolve(null); return; }
+      navigator.geolocation.getCurrentPosition(
+        async pos => {
+          try {
+            const { latitude: lat, longitude: lon } = pos.coords;
+            const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+            const data = await res.json();
+            const addr = data.address || {};
+            const place = addr.city || addr.town || addr.village || addr.county || addr.state || 'unknown';
+            const country = addr.country_code ? addr.country_code.toUpperCase() : '';
+            resolve(country ? `${place}, ${country}` : place);
+          } catch(e) { resolve(null); }
+        },
+        () => resolve(null),
+        { timeout: 6000 }
+      );
+    });
+  }
+
+  // ── SCREEN: write ─────────────────────────────────────────────────────────
+  function showWrite(onSeal) {
+    const col  = colorObj(selectedColor);
+    const wrap = el('div','fade-in','width:100%;display:flex;flex-direction:column;align-items:center;gap:1.4rem;');
+    append(wrap, el('div','label','',fmtDateStr(todayStr())));
+
+    const card = el('div','note-card');
+    card.style.background = col.bg;
+
+    let photoData = null;
+    const photoArea = el('div','card-photo-area');
+    const hint      = el('div','photo-hint','','+ add a photo');
+    const fileInput = document.createElement('input');
+    fileInput.type='file'; fileInput.accept='image/*';
+    fileInput.style.cssText='position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;';
+
+    fileInput.addEventListener('change', async () => {
+      if (!fileInput.files[0]) return;
+      photoData = await compressImage(fileInput.files[0]);
+      photoArea.innerHTML='';
+      const img=document.createElement('img'); img.src=photoData;
+      const remove=el('div','photo-remove','','remove');
+      remove.addEventListener('click', e => {
+        e.stopPropagation(); photoData=null; photoArea.innerHTML='';
+        append(photoArea,hint,fileInput);
+      });
+      append(photoArea,img,remove);
+    });
+    append(photoArea,hint,fileInput);
+    card.appendChild(photoArea);
+
+    const textArea = el('div','card-text-area');
+    const ta = document.createElement('textarea');
+    ta.maxLength=MAX_CHARS; ta.placeholder='whatever you want...';
+    ta.setAttribute('autocomplete','off'); ta.setAttribute('autocorrect','off'); ta.setAttribute('spellcheck','false');
+    textArea.appendChild(ta);
+    card.appendChild(textArea);
+
+    // Location toggle row — inside card above footer
+    let locEnabled = false;
+    let locValue   = null;
+    const locRow   = el('div','loc-toggle-row');
+    const togLabel = el('label','loc-toggle-label','','include location');
+    const togWrap  = el('label','loc-toggle');
+    const togInput = document.createElement('input');
+    togInput.type  = 'checkbox';
+    const togTrack = el('div','loc-toggle-track');
+    append(togWrap, togInput, togTrack);
+    togLabel.htmlFor = 'loc-chk';
+    togInput.id      = 'loc-chk';
+
+    const cardLoc = el('div','card-loc','','');
+    card.appendChild(cardLoc);
+
+    togInput.addEventListener('change', async () => {
+      locEnabled = togInput.checked;
+      if (locEnabled) {
+        cardLoc.textContent = '📍 locating...';
+        locValue = await getLocation();
+        cardLoc.textContent = locValue ? `📍 ${locValue}` : '';
+        if (!locValue) { togInput.checked = false; locEnabled = false; }
+      } else {
+        locValue = null;
+        cardLoc.textContent = '';
+      }
+    });
+
+    append(locRow, togWrap, togLabel);
+    card.appendChild(locRow);
+
+    const footer  = el('div','card-footer');
+    const counter = el('div','counter','',String(MAX_CHARS));
+    const picker  = buildPicker(newCol=>{ card.style.background=newCol.bg; });
+    append(footer,picker,counter);
+    card.appendChild(footer);
+    wrap.appendChild(card);
+
+    const sealBtn = el('button','btn','','seal');
+    wrap.appendChild(sealBtn);
+    setApp(wrap);
+
+    ta.addEventListener('input',()=>{
+      const rem=MAX_CHARS-ta.value.length;
+      counter.textContent=rem;
+      counter.classList.toggle('low',rem<30);
+    });
+
+    sealBtn.addEventListener('click', async () => {
+      const text=ta.value.trim();
+      if (!text&&!photoData) return;
+      await saveEntry({
+        text, photo:photoData||null,
+        dateStr:todayStr(), createdAt:Date.now(),
+        color:selectedColor,
+        location: locEnabled ? locValue : null
+      });
+      if (typeof onSeal==='function') onSeal();
+    });
+
+    setTimeout(()=>ta.focus(),50);
+  }
+
+  // ── SCREEN: arrival ───────────────────────────────────────────────────────
+  function showArrival(onOpen) {
+    const trip = getTrip();
+    const wrap = el('div','fade-in arrival-wrap');
+    const title = el('p','serif-msg');
+    title.innerHTML=`<em>${trip.name}</em>`;
+    const msg = el('p','serif-msg');
+    msg.innerHTML='your notebook<br>has arrived.';
+    const btn = el('button','btn','','open it');
+    btn.addEventListener('click',()=>{ if(typeof onOpen==='function') onOpen(); });
+    append(wrap,title,msg,btn);
+    setApp(wrap);
+  }
+
+  // ── SCREEN: journal ───────────────────────────────────────────────────────
+  async function showJournal() {
+    const trip    = getTrip();
+    const entries = await getAllEntries();
+
+    console.log('entries found:', entries.length, entries);
+
+    const wrap = el('div','fade-in','width:100%;display:flex;flex-direction:column;align-items:center;gap:1.5rem;');
+    const title = el('p','trip-title','',trip.name);
+    const sub   = el('div','label','',`${fmtDateStr(trip.startDate)} — ${fmtDateStr(trip.endDate)}`);
+    append(wrap,title,sub);
+
+    const journal = el('div','journal-wrap');
+
+    // Build all days in trip range
+    const [sy,sm,sd] = trip.startDate.split('-').map(Number);
+    const [ey,em,ed] = trip.endDate.split('-').map(Number);
+    const startMs = new Date(sy,sm-1,sd).getTime();
+    const endMs   = new Date(ey,em-1,ed).getTime();
+
+    let totalDays = 0;
+    for (let ms=startMs; ms<=endMs; ms+=86400000) {
+      totalDays++;
+      const ds = localDateStr(new Date(ms));
+      // All entries for this day (could be multiple in test mode)
+      const dayEntries = entries.filter(e=>e.dateStr===ds);
+
+      if (dayEntries.length>0) {
+        dayEntries.forEach(entry=>{
+          const col  = colorObj(entry.color||'cream');
+          const card = el('div','journal-entry');
+          card.style.background=col.bg;
+          if (entry.photo) {
+            const img=document.createElement('img'); img.className='journal-photo'; img.src=entry.photo;
+            card.appendChild(img);
+          }
+          const body  = el('div','journal-body'+(entry.photo?'':' no-photo'));
+          const locStr = entry.location ? ` · 📍 ${entry.location}` : '';
+          const stamp = el('div','journal-stamp','',`${fmtDateStr(ds)} · ${fmtTime(entry.createdAt)}${locStr}`);
+          const text  = el('div','journal-text','',entry.text||'');
+          append(body,stamp,text);
+          card.appendChild(body);
+          journal.appendChild(card);
+        });
+      } else {
+        // missed day
+        const card  = el('div','journal-entry','background:#ece8e2;');
+        const body  = el('div','journal-body no-photo','align-items:center;');
+        const stamp = el('div','missed-stamp','',fmtDateStr(ds));
+        const miss  = el('div','missed-text','margin-top:0.3rem;','no entry today :(');
+        append(body,stamp,miss);
+        card.appendChild(body);
+        journal.appendChild(card);
+      }
+    }
+
+    wrap.appendChild(journal);
+
+    // PDF download button
+    const pdfBtn = el('button','btn','margin-top:1rem;','download as pdf');
+    pdfBtn.addEventListener('click',()=>generatePDF(trip,entries));
+    wrap.appendChild(pdfBtn);
+
+    setApp(wrap);
+  }
+
+  // ── PDF GENERATION ────────────────────────────────────────────────────────
+  async function generatePDF(trip, entries) {
+    const pages = [];
+
+    // Cover
+    pages.push(`
+      <div class="page cover">
+        <div class="cover-inner">
+          <div class="cover-title">${trip.name}</div>
+          <div class="cover-dates">${fmtDateStr(trip.startDate)} — ${fmtDateStr(trip.endDate)}</div>
+        </div>
+      </div>
+    `);
+
+    entries.forEach(entry => {
+      const col      = colorObj(entry.color || 'cream');
+      const photoHtml = entry.photo
+        ? `<div class="entry-photo"><img src="${entry.photo}"></div>` : '';
+      const locStr   = entry.location ? ` · ${entry.location}` : '';
+      pages.push(`
+        <div class="page entry" style="background:${col.bg}; border:1px solid rgba(0,0,0,0.12);">
+          <div class="entry-stamp">${fmtDateStr(entry.dateStr)} · ${fmtTime(entry.createdAt)}${locStr}</div>
+          ${photoHtml}
+          <div class="entry-text">${(entry.text||'').replace(/\n/g,'<br>')}</div>
+        </div>
+      `);
+    });
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+      * { box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      body { background:#f5f2ee; font-family:'Lato',sans-serif; padding:10mm; }
+
+      /* Zine = half-letter: 5.5in x 8.5in */
+      @page { size: 5.5in 8.5in; margin: 0; }
+
+      .page {
+        width: 5.5in;
+        min-height: 8.5in;
+        margin: 0 auto 12px;
+        padding: 14mm 14mm 12mm;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        page-break-after: always;
+        border-radius: 2px;
+      }
+
+      /* Cover */
+      .cover {
+        background: #f5f2ee !important;
+        border: 1px solid rgba(0,0,0,0.1);
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 1.4rem;
+      }
+      .cover-title {
+        font-family: 'IM Fell English', serif;
+        font-size: 1.9rem;
+        color: #1a1a18;
+        line-height: 1.35;
+      }
+      .cover-dates {
+        font-family: 'Lato', sans-serif;
+        font-size: 8px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #9a9690;
+      }
+
+      /* Entries */
+      .entry-stamp {
+        font-family: 'Lato', sans-serif;
+        font-size: 7.5px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: rgba(0,0,0,0.32);
+        flex-shrink: 0;
+      }
+      .entry-photo { width: 100%; flex-shrink: 0; }
+      .entry-photo img {
+        width: 100%;
+        display: block;
+        border-radius: 2px;
+        border: 1px solid rgba(0,0,0,0.07);
+      }
+      .entry-text {
+        font-family: 'IM Fell English', serif;
+        font-style: italic;
+        font-size: 0.95rem;
+        line-height: 1.9;
+        color: rgba(0,0,0,0.75);
+        flex: 1;
+      }
+
+      @media print {
+        body { padding: 0; background: white; }
+        .page { margin: 0 auto; border-radius: 0; }
+      }
+    </style></head>
+    <body>${pages.join('')}</body>
+    <script>
+      window.onload = function() {
+        setTimeout(function() { window.print(); }, 800);
+      };
+    <\/script>
+    </html>`;
+
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    } else {
+      alert('Please allow popups to download the PDF.');
+    }
+  }
+
+  // ── ROOT RENDER ───────────────────────────────────────────────────────────
+  async function render() {
+    const trip  = getTrip();
+    const today = todayStr();
+
+    if (!trip) { showSetup(); return; }
+    if (today < trip.startDate) {
+      const wrap=el('div','fade-in','display:flex;flex-direction:column;align-items:center;gap:2rem;text-align:center;');
+      const msg=el('p','serif-msg'); msg.innerHTML=`<em>${trip.name}</em><br>starts on ${fmtDateStr(trip.startDate)}.`;
+      append(wrap,msg); setApp(wrap); return;
+    }
+    if (tripIsOver()) { showArrival(()=>showJournal()); return; }
+
+    // Active trip — no daily limit in test mode, loops indefinitely
+    function writeLoop() { showHome(()=>showWrite(()=>writeLoop())); }
+    writeLoop();
+  }
+
+  // ── MODAL CONFIRM ─────────────────────────────────────────────────────────
+  function showModal(message, actions) {
+    const overlay = el('div','modal-overlay');
+    const box     = el('div','modal-box');
+    const msg     = el('div','modal-msg');
+    msg.innerHTML = message;
+    const btns    = el('div','modal-btns');
+    actions.forEach(a => {
+      const b = el('button', a.danger ? 'danger' : '', '', a.label);
+      b.addEventListener('click', () => {
+        overlay.remove();
+        if (typeof a.action === 'function') a.action();
+      });
+      btns.appendChild(b);
+    });
+    append(box, msg, btns);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  }
+
+  // ── HIDDEN DEBUG TRIGGER ──────────────────────────────────────────────────
+  // Tap the invisible bottom-right corner 3 times fast to open debug menu
+  let _tapCount = 0, _tapTimer = null;
+  document.getElementById('debug-trigger').addEventListener('click', () => {
+    _tapCount++;
+    clearTimeout(_tapTimer);
+    _tapTimer = setTimeout(() => { _tapCount = 0; }, 600);
+    if (_tapCount >= 3) {
+      _tapCount = 0;
+      showModal(
+        'test controls.<br><em>what would you like to do?</em>',
+        [
+          {
+            label: 'skip to end',
+            danger: false,
+            action: () => showModal(
+              'skip to end of trip?<br><em>you cannot undo this.</em>',
+              [
+                { label: 'cancel', action: () => {} },
+                { label: 'yes, skip', danger: true, action: () => {
+                  const trip = getTrip();
+                  if (!trip) return;
+                  trip.forceOver = true;
+                  if (trip.endDate > todayStr()) trip.endDate = todayStr();
+                  saveTrip(trip);
+                  render();
+                }}
+              ]
+            )
+          },
+          {
+            label: 'reset all',
+            danger: true,
+            action: () => showModal(
+              'reset everything?<br><em>all entries will be deleted. you cannot undo this.</em>',
+              [
+                { label: 'cancel', action: () => {} },
+                { label: 'yes, reset', danger: true, action: async () => {
+                  localStorage.removeItem(S_TRIP);
+                  localStorage.removeItem(S_COLOR);
+                  await clearAllEntries();
+                  _db = null;
+                  render();
+                }}
+              ]
+            )
+          },
+          { label: 'cancel', action: () => {} }
+        ]
+      );
+    }
+  });
+
+  // ── WAVES ─────────────────────────────────────────────────────────────────
+  function initWaves() {
+    const canvas=document.getElementById('waves');
+    const ctx=canvas.getContext('2d');
+    let t=0;
+    function resize() { canvas.width=window.innerWidth; canvas.height=window.innerHeight; }
+    resize();
+    window.addEventListener('resize',resize);
+    function draw() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      for (let i=0;i<5;i++) {
+        const baseY=canvas.height/6*(i+1), amp=3.5+i*1.1, freq=0.006+i*0.0009, speed=0.28+i*0.07;
+        ctx.beginPath(); ctx.strokeStyle='#72d6f0'; ctx.lineWidth=1.8; ctx.globalAlpha=0.52-i*0.06;
+        for (let x=0;x<=canvas.width;x+=2) {
+          const y=baseY+Math.sin(x*freq+t*speed)*amp+Math.sin(x*freq*0.48+t*speed*0.72)*amp*0.38;
+          x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha=1; t+=0.014;
+      requestAnimationFrame(draw);
+    }
+    draw();
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/trip-journal/sw.js').catch(()=>{});
+    });
+  }
+
+  initWaves();
+  render();
+  startHeartbeat();
+</script>
+</body>
+</html>
